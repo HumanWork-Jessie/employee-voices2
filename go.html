@@ -31,22 +31,22 @@ var source   = params.get('s') || 'unknown';
 var campaign = params.get('c') || 'general';
 var advocate = params.get('a') || 'anonymous';
 
-var trackingParams = new URLSearchParams({
-  action: 'click',
-  source: source,
-  campaign: campaign,
-  advocate: advocate,
-  timestamp: new Date().toISOString(),
-  referrer: document.referrer || 'direct'
-});
+var trackingUrl = GOOGLE_SCRIPT_URL
+  + '?action=click'
+  + '&source=' + encodeURIComponent(source)
+  + '&campaign=' + encodeURIComponent(campaign)
+  + '&advocate=' + encodeURIComponent(advocate)
+  + '&referrer=' + encodeURIComponent(document.referrer || 'direct');
 
-if (navigator.sendBeacon) {
-  navigator.sendBeacon(GOOGLE_SCRIPT_URL + '?' + trackingParams.toString());
-} else {
-  fetch(GOOGLE_SCRIPT_URL + '?' + trackingParams.toString(), { mode: 'no-cors' });
-}
+// Create a hidden image to fire the tracking request — this is the most
+// reliable method across all browsers and doesn't get blocked by CORS
+var img = new Image();
+img.onload = function() { window.location.href = DESTINATION; };
+img.onerror = function() { window.location.href = DESTINATION; };
+img.src = trackingUrl;
 
-setTimeout(function() { window.location.href = DESTINATION; }, 400);
+// Safety net: redirect after 3 seconds even if tracking hasn't confirmed
+setTimeout(function() { window.location.href = DESTINATION; }, 3000);
 </script>
 </body>
 </html>
