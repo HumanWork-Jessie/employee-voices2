@@ -33,10 +33,10 @@ body { font-family:'DM Sans',sans-serif; background:var(--surface); color:var(--
 .app-shell { max-width:480px; margin:0 auto; min-height:100vh; background:var(--surface); position:relative; overflow-x:hidden; }
 
 /* Header */
-.app-header { background:var(--primary); padding:16px 20px 20px; position:sticky; top:0; z-index:100; }
+.app-header { background:var(--primary); padding:16px 20px 20px; position:sticky; top:0; z-index:100; text-align:center; }
 .app-header h1 { font-family:'Playfair Display',serif; font-size:22px; font-weight:700; color:#fff; letter-spacing:-0.3px; }
 .app-header .subtitle { font-size:13px; color:rgba(255,255,255,0.7); margin-top:4px; font-style:italic; }
-.header-nav { display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; }
+.header-nav { display:flex; gap:6px; margin-top:14px; flex-wrap:wrap; justify-content:center; }
 .header-nav button { background:rgba(255,255,255,0.12); border:1px solid rgba(255,255,255,0.15); color:rgba(255,255,255,0.85); font-family:'DM Sans',sans-serif; font-size:12px; font-weight:500; padding:6px 14px; border-radius:20px; cursor:pointer; transition:var(--transition); }
 .header-nav button:hover, .header-nav button.active { background:rgba(255,255,255,0.25); color:#fff; }
 .header-nav .admin-btn { margin-left:auto; background:rgba(196,163,90,0.25); border-color:rgba(196,163,90,0.4); color:#d4b76e; }
@@ -303,6 +303,31 @@ body { font-family:'DM Sans',sans-serif; background:var(--surface); color:var(--
       </div>
     </div>
 
+    <!-- SCREEN: Custom Share -->
+    <div class="screen" id="screen-custom">
+      <div class="back-row" onclick="backToTopics()">← Back to topics</div>
+      <div class="section-label">Share your own</div>
+      <h3 id="custom-category-title" style="font-family:'Playfair Display',serif; font-size:20px; margin-bottom:16px;"></h3>
+
+      <p style="font-size:14px; color:var(--text-secondary); line-height:1.6; margin-bottom:20px;">Write your own post, share a personal video, or riff on a social trend — whatever feels authentic to you. We'll generate a tracking link so your impact gets counted.</p>
+
+      <div class="draft-label">What kind of content?</div>
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:20px;">
+        <span class="hashtag" style="cursor:pointer; padding:8px 14px; font-size:13px;" onclick="setCustomType(this,'story')">📝 Written Post</span>
+        <span class="hashtag" style="cursor:pointer; padding:8px 14px; font-size:13px;" onclick="setCustomType(this,'video')">🎥 Personal Video</span>
+        <span class="hashtag" style="cursor:pointer; padding:8px 14px; font-size:13px;" onclick="setCustomType(this,'trend')">🔥 Social Trend</span>
+        <span class="hashtag" style="cursor:pointer; padding:8px 14px; font-size:13px;" onclick="setCustomType(this,'other')">💡 Something Else</span>
+      </div>
+
+      <div class="draft-label">Suggested hashtags</div>
+      <div class="hashtags" id="custom-hashtags"></div>
+
+      <div style="margin-top:24px; display:flex; flex-direction:column; gap:10px;">
+        <button class="btn btn-primary btn-full" onclick="selectCustomStory()">✅ Generate my tracking link</button>
+        <button class="btn btn-secondary btn-full" onclick="showNonTracked()">🙌 Share without tracking</button>
+      </div>
+    </div>
+
     <!-- SCREEN: Channel Picker -->
     <div class="screen" id="screen-channels">
       <div class="back-row" onclick="showScreen('home')">← Back to categories</div>
@@ -357,7 +382,9 @@ body { font-family:'DM Sans',sans-serif; background:var(--surface); color:var(--
     <!-- SCREEN: How It Works -->
     <div class="screen" id="screen-info">
       <div class="back-row" onclick="showScreen('home')">← Back to categories</div>
-      <div class="info-section"><h3>What is Employee Voices?</h3><p>A simple way to share stories about working here — if and when you want to. Browse categories, pick a topic that resonates, and share in your own words.</p></div>
+      <div class="info-section"><h3>What is Pull Up a Chair?</h3><p>A simple way to share your story about working at La-Z-Boy Incorporated — if and when you want to. Browse categories, pick a topic that resonates, or share something entirely your own.</p></div>
+      <div class="divider"></div>
+      <div class="info-section"><h3>Why does this matter?</h3><p>The best talent doesn't just look at job postings — they look at what real employees say about the places they work. Your authentic voice is more powerful than any ad campaign. When you share your experience, you help future team members see themselves here. That's employer brand, and it starts with you.</p></div>
       <div class="divider"></div>
       <div class="info-section"><h3>What's optional?</h3><p>Everything. Browsing, sharing, and tracking for recognition are all your choice — every single time.</p></div>
       <div class="divider"></div>
@@ -628,7 +655,16 @@ function openCategory(catId) {
         <button class="btn btn-secondary" onclick="showDraft('${cat.id}','${t.id}')">✍️ Help with draft</button>
       </div>
     </div>
-  `).join('');
+  `).join('') + `
+    <div class="story-card" style="border:2px dashed var(--border); background:var(--surface-alt);">
+      <div class="story-theme" style="background:rgba(196,163,90,0.15); color:var(--accent);">Your Own</div>
+      <h3>Share something different</h3>
+      <p>Have your own story, a personal video, or want to share a current social trend about working here? Go for it — your voice, your way.</p>
+      <div class="story-actions">
+        <button class="btn btn-primary" onclick="showCustomShare('${cat.id}')">✅ Share my own</button>
+      </div>
+    </div>
+  `;
   showScreen('topics');
 }
 
@@ -663,6 +699,41 @@ function showDraft(catId, topicId) {
   document.getElementById('draft-text').textContent = topic.draft;
   document.getElementById('draft-hashtags').innerHTML = topic.hashtags.map(h => `<span class="hashtag">${h}</span>`).join('');
   showScreen('draft');
+}
+
+// ======= CUSTOM SHARE =======
+let customType = 'story';
+
+function showCustomShare(catId) {
+  const cat = categories.find(c => c.id === catId);
+  if (!cat) return;
+  currentCategory = cat;
+  currentStory = {
+    cat: cat,
+    topic: { title: 'My own ' + cat.name.toLowerCase() + ' story', draft: '', hashtags: ['#LifeAtLaZBoy', '#PullUpAChair'], campaign: cat.id + '_custom' }
+  };
+  document.getElementById('custom-category-title').textContent = cat.icon + ' ' + cat.name;
+  document.getElementById('custom-hashtags').innerHTML = currentStory.topic.hashtags.map(h => '<span class="hashtag">' + h + '</span>').join('');
+  customType = 'story';
+  showScreen('custom');
+}
+
+function setCustomType(el, type) {
+  customType = type;
+  document.querySelectorAll('#screen-custom .hashtag').forEach(h => {
+    h.style.background = 'rgba(27,73,101,0.06)';
+    h.style.color = 'var(--primary-light)';
+  });
+  el.style.background = 'var(--primary)';
+  el.style.color = '#fff';
+
+  const typeLabels = { story: 'written post', video: 'video', trend: 'social trend', other: 'content' };
+  currentStory.topic.campaign = currentCategory.id + '_custom_' + type;
+  currentStory.topic.title = 'My own ' + currentCategory.name.toLowerCase() + ' ' + typeLabels[type];
+}
+
+function selectCustomStory() {
+  document.getElementById('consent-modal').classList.add('active');
 }
 
 // ======= CONSENT =======
