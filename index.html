@@ -727,44 +727,10 @@ function showNonTracked() {
 
 function showConfirmation() { showScreen('confirmation'); }
 
-// ======= SEED DATA (simulates 3 weeks of program activity) =======
-const seedData = [
-  { employee:'Maria Gonzalez', badge:'3157', slug:'mgonzalez', topic:'Why flexibility matters here', category:'Culture', campaign:'flexibility', channel:'facebook', clicks:47, date:'Apr 2' },
-  { employee:'Maria Gonzalez', badge:'3157', slug:'mgonzalez', topic:'Why flexibility matters here', category:'Culture', campaign:'flexibility', channel:'whatsapp', clicks:12, date:'Apr 2' },
-  { employee:'James Carter', badge:'7294', slug:'jcarter', topic:'How we build things differently', category:'Innovation & Craft', campaign:'manufacturing', channel:'facebook', clicks:38, date:'Apr 3' },
-  { employee:'Jessie Heath', badge:'4821', slug:'jheath', topic:'What our ERGs mean to me', category:'Belonging & ERGs', campaign:'ergs', channel:'linkedin', clicks:89, date:'Apr 4' },
-  { employee:'Jessie Heath', badge:'4821', slug:'jheath', topic:'What our ERGs mean to me', category:'Belonging & ERGs', campaign:'ergs', channel:'facebook', clicks:23, date:'Apr 4' },
-  { employee:'Aisha Patel', badge:'5503', slug:'apatel', topic:'Why I\'d recommend working here', category:'Careers & Opportunity', campaign:'referral', channel:'linkedin', clicks:64, date:'Apr 5' },
-  { employee:'Aisha Patel', badge:'5503', slug:'apatel', topic:'Why I\'d recommend working here', category:'Careers & Opportunity', campaign:'referral', channel:'instagram', clicks:31, date:'Apr 5' },
-  { employee:'Marcus Williams', badge:'6178', slug:'mwilliams', topic:'An idea that actually got implemented', category:'Innovation & Craft', campaign:'ideas', channel:'facebook', clicks:29, date:'Apr 7' },
-  { employee:'Maria Gonzalez', badge:'3157', slug:'mgonzalez', topic:'Why my team is different', category:'Belonging & ERGs', campaign:'team', channel:'facebook', clicks:52, date:'Apr 8' },
-  { employee:'James Carter', badge:'7294', slug:'jcarter', topic:'What I wish I knew on day one', category:'Culture', campaign:'firstday', channel:'facebook', clicks:41, date:'Apr 9' },
-  { employee:'James Carter', badge:'7294', slug:'jcarter', topic:'What I wish I knew on day one', category:'Culture', campaign:'firstday', channel:'whatsapp', clicks:18, date:'Apr 9' },
-  { employee:'Jessie Heath', badge:'4821', slug:'jheath', topic:'A moment that changed how I lead', category:'Growth & Development', campaign:'leadership', channel:'linkedin', clicks:112, date:'Apr 10' },
-  { employee:'Aisha Patel', badge:'5503', slug:'apatel', topic:'My career path wasn\'t a straight line', category:'Careers & Opportunity', campaign:'careerpath', channel:'linkedin', clicks:73, date:'Apr 11' },
-  { employee:'Aisha Patel', badge:'5503', slug:'apatel', topic:'My career path wasn\'t a straight line', category:'Careers & Opportunity', campaign:'careerpath', channel:'instagram', clicks:44, date:'Apr 11' },
-  { employee:'Marcus Williams', badge:'6178', slug:'mwilliams', topic:'Why quality is personal', category:'Innovation & Craft', campaign:'quality', channel:'linkedin', clicks:21, date:'Apr 13' },
-  { employee:'Marcus Williams', badge:'6178', slug:'mwilliams', topic:'Why quality is personal', category:'Innovation & Craft', campaign:'quality', channel:'facebook', clicks:34, date:'Apr 13' },
-  { employee:'Maria Gonzalez', badge:'3157', slug:'mgonzalez', topic:'Someone who invested in me', category:'Growth & Development', campaign:'mentor', channel:'facebook', clicks:61, date:'Apr 14' },
-  { employee:'Maria Gonzalez', badge:'3157', slug:'mgonzalez', topic:'Someone who invested in me', category:'Growth & Development', campaign:'mentor', channel:'whatsapp', clicks:27, date:'Apr 14' },
-  { employee:'Jessie Heath', badge:'4821', slug:'jheath', topic:'Why I stay', category:'Careers & Opportunity', campaign:'whystay', channel:'linkedin', clicks:96, date:'Apr 16' },
-  { employee:'James Carter', badge:'7294', slug:'jcarter', topic:'How we show up for our community', category:'Belonging & ERGs', campaign:'community', channel:'facebook', clicks:33, date:'Apr 17' },
-  { employee:'Aisha Patel', badge:'5503', slug:'apatel', topic:'What our values look like in action', category:'Culture', campaign:'values', channel:'linkedin', clicks:58, date:'Apr 18' },
-  { employee:'Marcus Williams', badge:'6178', slug:'mwilliams', topic:'A skill I built here that I didn\'t expect', category:'Growth & Development', campaign:'skills', channel:'facebook', clicks:26, date:'Apr 19' },
-];
-
-function getAllActivity() {
-  // Combine seed data with any live activity from this session
-  const live = activityLog.flatMap(a => a.channels.map(ch => ({
-    employee: a.employee, badge: a.badge, slug: a.slug, topic: a.topic,
-    category: a.category, campaign: a.campaign, channel: ch,
-    clicks: Math.floor(Math.random() * 20) + 1, // simulate some early clicks
-    date: 'Today'
-  })));
-  return [...seedData, ...live];
-}
-
 // ======= ADMIN DASHBOARD =======
+let clickData = []; // fetched from Google Sheet
+let dashboardLoaded = false;
+
 function showAdminTab(el, tab) {
   document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
@@ -774,98 +740,113 @@ function showAdminTab(el, tab) {
 }
 
 function renderDashboard() {
-  const all = getAllActivity();
-  const totalClicks = all.reduce((s, a) => s + a.clicks, 0);
-  const uniqueUsers = [...new Set(all.map(a => a.badge))];
-  const totalLinks = all.length;
-  const avgCtr = totalLinks > 0 ? Math.round(totalClicks / totalLinks) : 0;
+  // Show loading state
+  document.getElementById('stat-participants').textContent = '...';
+  document.getElementById('stat-links').textContent = '...';
+  document.getElementById('stat-clicks').textContent = '...';
+  document.getElementById('stat-ctr').textContent = '...';
+
+  // Fetch live click data from Google Sheet
+  fetch(APPS_SCRIPT_URL + '?action=getclicks')
+    .then(r => r.json())
+    .then(data => {
+      clickData = data.clicks || [];
+      renderDashboardData();
+    })
+    .catch(err => {
+      console.error('Failed to load click data:', err);
+      // Fall back to any local activity
+      clickData = activityLog.flatMap(a => a.channels.map(ch => ({
+        advocate: a.slug, source: ch, campaign: a.campaign, date: 'Today'
+      })));
+      renderDashboardData();
+    });
+}
+
+function renderDashboardData() {
+  const all = clickData;
+  const totalClicks = all.length;
+  const uniqueUsers = [...new Set(all.map(a => a.advocate).filter(a => a !== 'anonymous'))];
+  const uniqueCampaigns = [...new Set(all.map(a => a.campaign).filter(c => c !== 'unknown' && c !== 'general'))];
+  const avgPerAdvocate = uniqueUsers.length > 0 ? Math.round(totalClicks / uniqueUsers.length) : 0;
 
   document.getElementById('stat-participants').textContent = uniqueUsers.length;
-  document.getElementById('stat-links').textContent = totalLinks;
+  document.getElementById('stat-links').textContent = uniqueCampaigns.length;
   document.getElementById('stat-clicks').textContent = totalClicks.toLocaleString();
-  document.getElementById('stat-ctr').textContent = avgCtr + ' avg';
+  document.getElementById('stat-ctr').textContent = avgPerAdvocate + ' avg';
 
-  // Channel clicks chart
-  const channelClicks = {};
-  all.forEach(a => { channelClicks[a.channel] = (channelClicks[a.channel] || 0) + a.clicks; });
-  const maxCh = Math.max(...Object.values(channelClicks), 1);
-  const channelOrder = ['linkedin','facebook','instagram','twitter','whatsapp','other'];
-  document.getElementById('channel-chart').innerHTML = channelOrder.filter(ch => channelClicks[ch]).map(ch => {
-    const pct = Math.round((channelClicks[ch] / maxCh) * 100);
-    const barClass = ch === 'other' ? 'other-bar' : ch;
-    return `<div class="bar-chart-row"><div class="bar-label">${channelLabels[ch]}</div><div class="bar-track"><div class="bar-fill ${barClass}" style="width:${pct}%">${channelClicks[ch]} clicks</div></div></div>`;
-  }).join('');
+  // Channel chart
+  const channelCounts = {};
+  all.forEach(a => { channelCounts[a.source] = (channelCounts[a.source] || 0) + 1; });
+  const maxCh = Math.max(...Object.values(channelCounts), 1);
+  const channelOrder = ['linkedin','facebook','instagram','twitter','direct_share','other','unknown'];
+  const sourceLabels = { linkedin:'LinkedIn', facebook:'Facebook', instagram:'Instagram', twitter:'X / Twitter', direct_share:'WhatsApp / Text', other:'Other', unknown:'Unknown' };
+  document.getElementById('channel-chart').innerHTML = channelOrder.filter(ch => channelCounts[ch]).map(ch => {
+    const pct = Math.round((channelCounts[ch] / maxCh) * 100);
+    const barClass = ch === 'direct_share' ? 'whatsapp' : (ch === 'unknown' || ch === 'other') ? 'other-bar' : ch;
+    return `<div class="bar-chart-row"><div class="bar-label">${sourceLabels[ch] || ch}</div><div class="bar-track"><div class="bar-fill ${barClass}" style="width:${pct}%">${channelCounts[ch]}</div></div></div>`;
+  }).join('') || '<p style="font-size:13px;color:var(--text-muted);padding:12px 0;">No click data yet. Share some links and check back!</p>';
 
-  // Category clicks chart
-  const catClicks = {};
-  all.forEach(a => { catClicks[a.category] = (catClicks[a.category] || 0) + a.clicks; });
-  const maxCat = Math.max(...Object.values(catClicks), 1);
-  document.getElementById('category-chart').innerHTML = Object.entries(catClicks).sort((a,b) => b[1] - a[1]).map(([name, clicks]) => {
-    const pct = Math.round((clicks / maxCat) * 100);
-    return `<div class="bar-chart-row"><div class="bar-label">${name}</div><div class="bar-track"><div class="bar-fill linkedin" style="width:${pct}%">${clicks}</div></div></div>`;
-  }).join('');
+  // Campaign chart
+  const campCounts = {};
+  all.forEach(a => { if (a.campaign !== 'unknown' && a.campaign !== 'general' && a.campaign !== 'test') campCounts[a.campaign] = (campCounts[a.campaign] || 0) + 1; });
+  const maxCamp = Math.max(...Object.values(campCounts), 1);
+  document.getElementById('category-chart').innerHTML = Object.entries(campCounts).sort((a,b) => b[1] - a[1]).map(([name, count]) => {
+    const pct = Math.round((count / maxCamp) * 100);
+    return `<div class="bar-chart-row"><div class="bar-label">${name}</div><div class="bar-track"><div class="bar-fill linkedin" style="width:${pct}%">${count}</div></div></div>`;
+  }).join('') || '<p style="font-size:13px;color:var(--text-muted);padding:12px 0;">No campaign data yet.</p>';
 
-  // Top performing posts (aggregate by employee + topic)
-  const postMap = {};
+  // Top performing advocates
+  const byAdvocate = {};
   all.forEach(a => {
-    const key = a.slug + '|' + a.campaign;
-    if (!postMap[key]) postMap[key] = { employee:a.employee, topic:a.topic, channels:new Set(), clicks:0 };
-    postMap[key].clicks += a.clicks;
-    postMap[key].channels.add(a.channel);
+    if (a.advocate === 'anonymous' || a.advocate === 'test') return;
+    if (!byAdvocate[a.advocate]) byAdvocate[a.advocate] = { advocate:a.advocate, clicks:0, channels:new Set(), campaigns:new Set() };
+    byAdvocate[a.advocate].clicks++;
+    byAdvocate[a.advocate].channels.add(a.source);
+    byAdvocate[a.advocate].campaigns.add(a.campaign);
   });
-  const topPosts = Object.values(postMap).sort((a,b) => b.clicks - a.clicks).slice(0, 5);
-  const maxPostClicks = topPosts.length > 0 ? topPosts[0].clicks : 1;
-  document.getElementById('top-posts').innerHTML = topPosts.map(p => {
-    const pct = Math.round((p.clicks / maxPostClicks) * 100);
-    const chList = [...p.channels].map(c => channelLabels[c]).join(', ');
+  const topAdvocates = Object.values(byAdvocate).sort((a,b) => b.clicks - a.clicks).slice(0, 5);
+  const maxAdv = topAdvocates.length > 0 ? topAdvocates[0].clicks : 1;
+  document.getElementById('top-posts').innerHTML = topAdvocates.map(p => {
+    const pct = Math.round((p.clicks / maxAdv) * 100);
+    const chList = [...p.channels].map(c => sourceLabels[c] || c).join(', ');
     return `<div class="top-post-card">
-      <div class="top-post-header"><div class="top-post-name">${p.employee}</div><div class="top-post-clicks">${p.clicks} clicks</div></div>
-      <div class="top-post-meta">${p.topic} · ${chList}</div>
+      <div class="top-post-header"><div class="top-post-name">${p.advocate}</div><div class="top-post-clicks">${p.clicks} clicks</div></div>
+      <div class="top-post-meta">${p.campaigns.size} topic${p.campaigns.size > 1 ? 's' : ''} · ${chList}</div>
       <div class="top-post-bar"><div class="top-post-bar-fill" style="width:${pct}%"></div></div>
     </div>`;
-  }).join('');
+  }).join('') || '<p style="font-size:13px;color:var(--text-muted);padding:12px 0;">No advocate data yet.</p>';
 
-  // Advocacy vs Paid comparison
-  const paidClicksEstimate = 285; // simulated paid media benchmark
-  const paidCost = 1420; // simulated spend
-  const advocacyCostPerClick = 0;
-  const paidCostPerClick = (paidCost / paidClicksEstimate).toFixed(2);
-  const diff = totalClicks - paidClicksEstimate;
-  const diffPct = Math.round((diff / paidClicksEstimate) * 100);
-  document.getElementById('comparison-section').innerHTML = `
+  // Comparison section
+  document.getElementById('comparison-section').innerHTML = totalClicks > 0 ? `
     <div class="comparison-card">
       <div class="comparison-row"><div class="comparison-label">Employee Advocacy Clicks</div><div class="comparison-value positive">${totalClicks.toLocaleString()}</div></div>
-      <div class="comparison-row"><div class="comparison-label">Paid LinkedIn Ads (same period)</div><div class="comparison-value neutral">${paidClicksEstimate}</div></div>
-      <div class="comparison-row"><div class="comparison-label">Advocacy Advantage</div><div class="comparison-value positive">+${diffPct}% more clicks</div></div>
-      <div class="comparison-row"><div class="comparison-label">Paid Cost Per Click</div><div class="comparison-value neutral">$${paidCostPerClick}</div></div>
       <div class="comparison-row"><div class="comparison-label">Advocacy Cost Per Click</div><div class="comparison-value positive">$0.00</div></div>
-      <div class="comparison-row"><div class="comparison-label">Equivalent Ad Spend Saved</div><div class="comparison-value highlight">$${(totalClicks * paidCostPerClick).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</div></div>
+      <div class="comparison-row"><div class="comparison-label">Estimated Paid Equivalent</div><div class="comparison-value highlight">$${(totalClicks * 4.98).toLocaleString(undefined,{minimumFractionDigits:0,maximumFractionDigits:0})}</div></div>
     </div>
-    <p style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-top:8px;">Paid comparison based on same-period LinkedIn Sponsored Content campaign targeting similar audiences. Cost per click calculated from actual ad spend.</p>
-  `;
+    <p style="font-size:11px; color:var(--text-muted); line-height:1.5; margin-top:8px;">Estimated value based on average LinkedIn Sponsored Content CPC of ~$4.98.</p>
+  ` : '<p style="font-size:13px;color:var(--text-muted);padding:12px 0;">Comparison data will appear once clicks are recorded.</p>';
 
   // Recognition tab
-  const byUser = {};
-  all.forEach(a => {
-    if (!byUser[a.badge]) byUser[a.badge] = { name:a.employee, topics:new Set(), clicks:0, channelClicks:{} };
-    byUser[a.badge].topics.add(a.campaign);
-    byUser[a.badge].clicks += a.clicks;
-    byUser[a.badge].channelClicks[a.channel] = (byUser[a.badge].channelClicks[a.channel] || 0) + a.clicks;
-  });
   const recTbody = document.getElementById('recognition-tbody');
-  recTbody.innerHTML = Object.values(byUser).sort((a,b) => b.clicks - a.clicks).map(u => {
-    const topCh = Object.entries(u.channelClicks).sort((a,b) => b[1] - a[1])[0];
-    const impact = u.clicks >= 150 ? '<span class="impact-badge impact-high">High Impact</span>' :
-                   u.clicks >= 75 ? '<span class="impact-badge impact-medium">Growing</span>' :
+  recTbody.innerHTML = Object.values(byAdvocate).sort((a,b) => b.clicks - a.clicks).map(u => {
+    const topCh = [...u.channels].sort((a,b) => {
+      const countA = all.filter(r => r.advocate === u.advocate && r.source === a).length;
+      const countB = all.filter(r => r.advocate === u.advocate && r.source === b).length;
+      return countB - countA;
+    })[0];
+    const topChCount = all.filter(r => r.advocate === u.advocate && r.source === topCh).length;
+    const impact = u.clicks >= 20 ? '<span class="impact-badge impact-high">High Impact</span>' :
+                   u.clicks >= 10 ? '<span class="impact-badge impact-medium">Growing</span>' :
                    '<span class="impact-badge impact-low">Building</span>';
-    return `<tr><td style="font-weight:600">${u.name}</td><td>${u.topics.size}</td><td>${u.clicks}</td><td>${channelLabels[topCh[0]]} (${topCh[1]})</td><td>${impact}</td></tr>`;
-  }).join('');
+    return `<tr><td style="font-weight:600">${u.advocate}</td><td>${u.campaigns.size}</td><td>${u.clicks}</td><td>${sourceLabels[topCh] || topCh} (${topChCount})</td><td>${impact}</td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">No recognition data yet.</td></tr>';
 
   // Activity log
   const actTbody = document.getElementById('activity-tbody');
-  actTbody.innerHTML = [...all].reverse().map(a =>
-    `<tr><td>${a.date}</td><td>${a.employee}</td><td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${a.topic}</td><td>${channelLabels[a.channel]}</td><td style="font-weight:600;color:${a.clicks >= 50 ? 'var(--success)' : 'var(--text-secondary)'}">${a.clicks}</td></tr>`
-  ).join('');
+  actTbody.innerHTML = [...all].reverse().slice(0, 50).map(a =>
+    `<tr><td style="white-space:nowrap;">${a.date}</td><td>${a.advocate}</td><td>${a.campaign}</td><td>${sourceLabels[a.source] || a.source}</td><td style="font-weight:600;">1</td></tr>`
+  ).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px;">No activity yet. Share some links to see data here.</td></tr>';
 }
 </script>
 </body>
