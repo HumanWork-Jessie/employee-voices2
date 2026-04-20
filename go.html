@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redirecting...</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:#1B4965; color:#fff; display:flex; align-items:center; justify-content:center; min-height:100vh; text-align:center; padding:20px; }
+  .redirect-card { max-width:360px; }
+  .spinner { width:40px; height:40px; border:3px solid rgba(255,255,255,0.2); border-top-color:#E8873D; border-radius:50%; animation:spin 0.8s linear infinite; margin:0 auto 20px; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+  h2 { font-size:18px; font-weight:600; margin-bottom:8px; }
+  p { font-size:14px; opacity:0.7; line-height:1.5; }
+  a { color:#F4A261; text-decoration:underline; font-size:13px; display:inline-block; margin-top:16px; }
+</style>
+</head>
+<body>
+<div class="redirect-card">
+  <div class="spinner"></div>
+  <h2>Taking you to La-Z-Boy Careers</h2>
+  <p>You'll be redirected in just a moment.</p>
+  <a href="https://careers.la-z-boy.com/">Click here if you're not redirected</a>
+</div>
+<script>
+var GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzJ-lzInUJ48W-iyLFeqatFhBX7lPH5x3JaWdLPlAdfwdt6WrdGHI5UQAQl5x37LpunyA/exec';
+var DESTINATION = 'https://careers.la-z-boy.com/';
+
+var params = new URLSearchParams(window.location.search);
+var source   = params.get('s') || 'unknown';
+var campaign = params.get('c') || 'general';
+var advocate = params.get('a') || 'anonymous';
+
+var trackingParams = new URLSearchParams({
+  action: 'click',
+  source: source,
+  campaign: campaign,
+  advocate: advocate,
+  timestamp: new Date().toISOString(),
+  referrer: document.referrer || 'direct'
+});
+
+if (navigator.sendBeacon) {
+  navigator.sendBeacon(GOOGLE_SCRIPT_URL + '?' + trackingParams.toString());
+} else {
+  fetch(GOOGLE_SCRIPT_URL + '?' + trackingParams.toString(), { mode: 'no-cors' });
+}
+
+setTimeout(function() { window.location.href = DESTINATION; }, 400);
+</script>
+</body>
+</html>
